@@ -1,0 +1,29 @@
+### Проверка API
+GET http://localhost:8080
+
+### Авторизация и получение всех данных
+# @name login
+POST http://localhost:8080/api/login
+Content-Type: application/json
+
+# {
+#   "phone": "87072351997",
+#   "password": "1234"
+# }
+{
+  "phone": "87013536087",
+  "password": "7013536087"
+}
+
+
+### Пополнения деньгами по account
+# Ответ: { "money": [...], "pay_money_total": <сумма pay_money> }
+GET http://localhost:8080/api/money/{{account}}
+
+### Пополнения монетами по account
+# Ответ: { "coin": [...], "pay_coin_total": <сумма pay_coin> }
+GET http://localhost:8080/api/coin/{{account}}
+
+### Платежи по account
+# Ответ: { "payments": [...], "sum_total": <сумма sum> }
+GET http://localhost:8080/api/payments/{{account}}
