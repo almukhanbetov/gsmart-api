@@ -5,3 +5,10 @@
 .idea
 *.log
 gsmart-api
+
+# Only the Go backend gets built here; keep these out of the build context
+frontend/
+mobile/
+database/
+*.md
+rest.http

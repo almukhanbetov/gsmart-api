@@ -1,0 +1,20 @@
+# Go
+/gsmart-api
+*.exe
+*.test
+*.out
+
+# Env
+.env
+.env.*
+!.env.example
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Node (safety net; frontend/ and mobile/ have their own .gitignore too)
+node_modules/
+.next/
+.expo/
