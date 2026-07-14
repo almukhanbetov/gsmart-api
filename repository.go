@@ -1,14 +1,11 @@
 package main
-
 import "context"
-
 func findUserByPhone(
 	ctx context.Context,
 	phone string,
 ) (User, string, error) {
 	var user User
 	var passwordHash string
-
 	query := `
 		SELECT
 			id,
@@ -100,7 +97,6 @@ func getDevices(
 
 	return devices, rows.Err()
 }
-
 func getMoney(
 	ctx context.Context,
 	userCode int,

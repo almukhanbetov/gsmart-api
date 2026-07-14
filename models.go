@@ -6,7 +6,6 @@ type LoginRequest struct {
 	Phone    string `json:"phone" binding:"required"`
 	Password string `json:"password" binding:"required"`
 }
-
 type User struct {
 	ID       int    `json:"id"`
 	Phone    string `json:"phone"`
@@ -14,7 +13,6 @@ type User struct {
 	UserCode int    `json:"user_code"`
 	Bin      string `json:"bin"`
 }
-
 type Device struct {
 	ID           int     `json:"id"`
 	Account      string  `json:"account"`
@@ -32,14 +30,12 @@ type Device struct {
 	DataStatus   *string `json:"data_status"`
 	DataInkas    *string `json:"data_inkas"`
 }
-
 type Money struct {
 	ID        int       `json:"id"`
 	Account   int       `json:"account"`
 	PayMoney  int       `json:"pay_money"`
 	CreatedAt time.Time `json:"created_at"`
 }
-
 type Coin struct {
 	ID        int       `json:"id"`
 	Account   int       `json:"account"`
