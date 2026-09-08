@@ -1,0 +1,27 @@
+name: gsmart
+description: "Smart24 — личный кабинет владельца автоматов (Flutter, отдельная реализация mobile/)."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # Минимальный набор — как в задании.
+  http: ^1.2.2
+  shared_preferences: ^2.3.2
+  intl: ^0.20.2
+  go_router: ^14.6.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
