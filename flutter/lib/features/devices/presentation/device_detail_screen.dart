@@ -63,7 +63,7 @@ class DeviceDetailScreen extends StatelessWidget {
       if (d.gruppa.isNotEmpty)
         (Icons.folder_open_rounded, 'Группа', d.gruppa),
       if (d.bin.isNotEmpty) (Icons.badge_outlined, 'БИН', d.bin),
-      (Icons.account_balance_wallet_outlined, 'Баланс', formatTenge(d.summa)),
+      (Icons.account_balance_wallet_outlined, 'Тариф', formatTenge(d.summa)),
       if (d.abonTime != null && d.abonTime!.isNotEmpty)
         (Icons.event_repeat_rounded, 'Абон. плата до', d.abonTime!),
       if (d.dataInkas != null && d.dataInkas!.isNotEmpty)
@@ -97,18 +97,7 @@ class DeviceDetailScreen extends StatelessWidget {
             child: AppCard(
               padding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.xl, vertical: AppSpacing.sm),
-              child: Column(
-                children: [
-                  for (var i = 0; i < specs.length; i++) ...[
-                    if (i != 0) Divider(color: c.border, height: 1),
-                    _SpecRow(
-                      icon: specs[i].$1,
-                      label: specs[i].$2,
-                      value: specs[i].$3,
-                    ),
-                  ],
-                ],
-              ),
+              child: _SpecTable(specs: specs),
             ),
           ),
           const SizedBox(height: AppSpacing.xxl),
@@ -191,7 +180,7 @@ class _DeviceHero extends StatelessWidget {
                     Text(
                       device.deviceName.isNotEmpty
                           ? device.deviceName
-                          : 'Smart24 #${device.account}',
+                          : 'G_smart.kz #${device.account}',
                       style: text.titleLarge?.copyWith(color: c.textPrimary),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -223,41 +212,67 @@ class _DeviceHero extends StatelessWidget {
   }
 }
 
-class _SpecRow extends StatelessWidget {
-  const _SpecRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
+/// Таблица характеристик: слева иконка + название (ширина по самой длинной
+/// подписи), справа значения — все от одной вертикальной линии.
+class _SpecTable extends StatelessWidget {
+  const _SpecTable({required this.specs});
 
-  final IconData icon;
-  final String label;
-  final String value;
+  final List<(IconData, String, String)> specs;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final text = Theme.of(context).textTheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-      child: Row(
-        children: [
-          Icon(icon, size: 17, color: c.textMuted),
-          const SizedBox(width: AppSpacing.md),
-          Text(label, style: text.bodyMedium?.copyWith(color: c.textSecondary)),
-          const Spacer(),
-          Flexible(
-            child: Text(
-              value,
-              textAlign: TextAlign.right,
-              style: text.bodyMedium?.copyWith(
-                color: c.textPrimary,
-                fontWeight: FontWeight.w600,
+    const cellPadding = EdgeInsets.symmetric(vertical: AppSpacing.md);
+
+    return Table(
+      // Подписи — по самой длинной, но не шире половины: значениям всегда
+      // хватает места, слова и даты не разрываются.
+      columnWidths: const {
+        0: MinColumnWidth(IntrinsicColumnWidth(), FractionColumnWidth(0.5)),
+        1: FlexColumnWidth(),
+      },
+      defaultVerticalAlignment: TableCellVerticalAlignment.top,
+      children: [
+        for (var i = 0; i < specs.length; i++)
+          TableRow(
+            decoration: i == 0
+                ? null
+                : BoxDecoration(
+                    border: Border(top: BorderSide(color: c.border)),
+                  ),
+            children: [
+              Padding(
+                padding: cellPadding.copyWith(right: AppSpacing.lg),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(specs[i].$1, size: 17, color: c.textMuted),
+                    const SizedBox(width: AppSpacing.md),
+                    Flexible(
+                      child: Text(
+                        specs[i].$2,
+                        style:
+                            text.bodyMedium?.copyWith(color: c.textSecondary),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
+              Padding(
+                padding: cellPadding,
+                child: Text(
+                  specs[i].$3,
+                  textAlign: TextAlign.left,
+                  style: text.bodyMedium?.copyWith(
+                    color: c.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+      ],
     );
   }
 }
