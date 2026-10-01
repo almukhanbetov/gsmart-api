@@ -13,8 +13,10 @@ class DateRange {
   final DateTime to;
   final DateRangePreset preset;
 
+  /// Календарные дни считаются по Asia/Almaty — как и даты операций из API
+  /// (см. [projectNow]), независимо от часового пояса телефона.
   static DateRange forPreset(DateRangePreset preset, {DateTime? now}) {
-    final today = now ?? DateTime.now();
+    final today = projectNow(now);
     final endOfDay = DateTime(today.year, today.month, today.day);
     switch (preset) {
       case DateRangePreset.today:
@@ -51,7 +53,7 @@ class DateRangeBar extends StatelessWidget {
   };
 
   Future<void> _pickCustom(BuildContext context) async {
-    final now = DateTime.now();
+    final now = projectNow();
     final picked = await showDateRangePicker(
       context: context,
       firstDate: DateTime(now.year - 3),

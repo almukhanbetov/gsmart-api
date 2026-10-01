@@ -17,12 +17,9 @@ String formatTenge(num value) => '${_money.format(value)} ₸';
 String formatMoney(num value) => _money.format(value);
 
 /// "Сегодня, 14:32" / "Вчера, 14:32" / "8 сен, 14:32".
-String formatRelativeDateTime(DateTime? value) {
+String formatRelativeDateTime(DateTime? value, {DateTime? now}) {
   if (value == null) return '—';
-  final now = DateTime.now();
-  final d = DateTime(value.year, value.month, value.day);
-  final today = DateTime(now.year, now.month, now.day);
-  final diff = today.difference(d).inDays;
+  final diff = _daysAgo(value, now);
 
   final String day;
   if (diff == 0) {
@@ -36,13 +33,20 @@ String formatRelativeDateTime(DateTime? value) {
 }
 
 /// Заголовок группы истории по дню.
-String formatDayGroup(DateTime day) {
-  final now = DateTime.now();
-  final today = DateTime(now.year, now.month, now.day);
-  final diff = today.difference(day).inDays;
+String formatDayGroup(DateTime day, {DateTime? now}) {
+  final diff = _daysAgo(day, now);
   if (diff == 0) return 'Сегодня';
   if (diff == 1) return 'Вчера';
   return _dayMonthYear.format(day);
+}
+
+/// Сколько календарных дней назад была дата из API относительно «сегодня»
+/// по Алматы. Считается в UTC, чтобы летнее время телефона не влияло.
+int _daysAgo(DateTime value, DateTime? now) {
+  final today = projectNow(now);
+  return DateTime.utc(today.year, today.month, today.day)
+      .difference(DateTime.utc(value.year, value.month, value.day))
+      .inDays;
 }
 
 String formatTime(DateTime? value) => value == null ? '—' : _time.format(value);

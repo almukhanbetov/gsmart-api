@@ -50,7 +50,9 @@ class TransactionHistoryScreen extends StatefulWidget {
 
 class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
   late Future<List<TxnRow>> _future;
-  DateRange _range = DateRange.forPreset(DateRangePreset.month);
+  // при каждом открытии — «Сегодня»; выбор живёт до закрытия экрана
+  // (обновление жестом меняет только _future)
+  DateRange _range = DateRange.forPreset(DateRangePreset.today);
 
   @override
   void initState() {
@@ -58,7 +60,12 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
     _future = widget.loader();
   }
 
-  void _reload() => setState(() => _future = widget.loader());
+  // колбэк setState не должен возвращать Future — иначе assert в debug
+  void _reload() {
+    setState(() {
+      _future = widget.loader();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
