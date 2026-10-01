@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 
@@ -23,11 +24,19 @@ func main() {
 	db = connectDB(databaseURL)
 	defer db.Close()
 
+	if err := ensureSchema(context.Background()); err != nil {
+		log.Println("Предупреждение: схема БД не подготовлена:", err)
+	}
+
+	// BIND_HOST=127.0.0.1 — API доступен только локально (за nginx с HTTPS).
+	// Пусто — все интерфейсы, как раньше.
+	addr := os.Getenv("BIND_HOST") + ":" + port
+
 	router := setupRouter()
 
-	log.Println("API запущен на порту", port)
+	log.Println("API запущен на", addr)
 
-	if err := router.Run(":" + port); err != nil {
+	if err := router.Run(addr); err != nil {
 		log.Fatal("Ошибка запуска API:", err)
 	}
 }

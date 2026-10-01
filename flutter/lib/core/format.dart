@@ -1,7 +1,8 @@
 import 'package:intl/intl.dart';
 
 /// Форматирование и клиентские расчёты — перенос mobile/src/lib/format.ts.
-/// Расчётная логика (signalQuality / isToday / isWithinRange) не меняется.
+/// Расчётная логика (signalQuality / isWithinRange) не меняется; isToday
+/// считает «сегодня» по часовому поясу проекта (см. [projectUtcOffset]).
 
 final NumberFormat _money = NumberFormat.decimalPattern('ru');
 final DateFormat _time = DateFormat('HH:mm');
@@ -82,13 +83,24 @@ int? signalQuality(String raw) {
   return (2 * (dbm + 100)).round();
 }
 
-/// true, если дата — сегодня (mobile: isToday()).
-bool isToday(DateTime? value) {
+/// Часовой пояс проекта — Asia/Almaty (UTC+5, без перехода на летнее время).
+///
+/// В БД время хранится как `timestamp without time zone` по Алматы, а API
+/// отдаёт его с суффиксом `Z`. Поэтому компоненты дат из API — это уже время
+/// Алматы, и сравнивать их нужно с «сейчас» в Алматы, а не в поясе телефона.
+const Duration projectUtcOffset = Duration(hours: 5);
+
+/// Текущие дата и время в часовом поясе проекта (компоненты — по Алматы).
+DateTime projectNow([DateTime? now]) =>
+    (now ?? DateTime.now()).toUtc().add(projectUtcOffset);
+
+/// true, если дата из API — сегодня по времени Алматы (mobile: isToday()).
+bool isToday(DateTime? value, {DateTime? now}) {
   if (value == null) return false;
-  final now = DateTime.now();
-  return value.year == now.year &&
-      value.month == now.month &&
-      value.day == now.day;
+  final today = projectNow(now);
+  return value.year == today.year &&
+      value.month == today.month &&
+      value.day == today.day;
 }
 
 /// Диапазон дат включительно по календарным дням (mobile: isWithinRange).

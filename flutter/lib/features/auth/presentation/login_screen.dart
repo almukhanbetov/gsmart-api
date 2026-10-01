@@ -25,7 +25,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _loading = false;
   bool _obscure = true;
-  String? _error;
+  // например, «Сессия истекла» после принудительного выхода
+  String? _error = SessionStore.instance.signedOutReason;
 
   @override
   void dispose() {
@@ -50,8 +51,8 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final response = await _authRepo.login(phone: phone, password: password);
-      await SessionStore.instance.save(response);
+      final result = await _authRepo.login(phone: phone, password: password);
+      await SessionStore.instance.save(result.response, token: result.token);
       if (mounted) context.go('/dashboard');
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);

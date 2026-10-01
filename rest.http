@@ -16,14 +16,28 @@ Content-Type: application/json
 }
 
 
+### Актуальные данные владельца сессии (тот же формат, что login)
+# token — из ответа login
+GET http://localhost:8080/api/me
+Authorization: Bearer {{login.response.body.token}}
+
+### Выход (отзыв сессии)
+POST http://localhost:8080/api/logout
+Authorization: Bearer {{login.response.body.token}}
+
+# История — только с токеном и только по своим автоматам (иначе 401 / 403)
+
 ### Пополнения деньгами по account
 # Ответ: { "money": [...], "pay_money_total": <сумма pay_money> }
 GET http://localhost:8080/api/money/{{account}}
+Authorization: Bearer {{login.response.body.token}}
 
 ### Пополнения монетами по account
 # Ответ: { "coin": [...], "pay_coin_total": <сумма pay_coin> }
 GET http://localhost:8080/api/coin/{{account}}
+Authorization: Bearer {{login.response.body.token}}
 
 ### Платежи по account
 # Ответ: { "payments": [...], "sum_total": <сумма sum> }
 GET http://localhost:8080/api/payments/{{account}}
+Authorization: Bearer {{login.response.body.token}}

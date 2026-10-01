@@ -9,6 +9,7 @@ import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_top_bar.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/fade_slide_in.dart';
+import '../../../shared/widgets/refresh_status.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../../../shared/widgets/signal_bars.dart';
 import '../../../shared/widgets/status_badge.dart';
@@ -16,14 +17,39 @@ import '../../dashboard/models/device_totals.dart';
 import '../models/device.dart';
 
 /// Детали автомата + переходы к истории (Купюры / Монеты / Безналичные).
-class DeviceDetailScreen extends StatelessWidget {
+///
+/// Данные — из общего [SessionStore]: при открытии экрана запрашивается
+/// свежая копия, и главная с характеристиками показывают одно и то же.
+class DeviceDetailScreen extends StatefulWidget {
   const DeviceDetailScreen({super.key, required this.account});
 
   final String account;
 
   @override
+  State<DeviceDetailScreen> createState() => _DeviceDetailScreenState();
+}
+
+class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => SessionStore.instance.refresh(force: false),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final session = SessionStore.instance.session;
+    return ListenableBuilder(
+      listenable: SessionStore.instance,
+      builder: (context, _) => _buildContent(context),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
+    final store = SessionStore.instance;
+    final session = store.session;
+    final account = widget.account;
     Device? device;
     if (session != null) {
       for (final d in session.devices) {
@@ -37,12 +63,19 @@ class DeviceDetailScreen extends StatelessWidget {
     if (device == null || session == null) {
       return Scaffold(
         appBar: const AppTopBar(title: 'Автомат'),
-        body: const EmptyState(
-          icon: Icons.search_off_rounded,
-          title: 'Автомат не найден',
+        body: Stack(
+          children: [
+            const EmptyState(
+              icon: Icons.search_off_rounded,
+              title: 'Автомат не найден',
+            ),
+            RefreshProgressBar(visible: store.isRefreshing),
+          ],
         ),
       );
     }
+
+    final refreshError = store.refreshError;
 
     final d = device;
     final c = context.colors;
@@ -85,59 +118,72 @@ class DeviceDetailScreen extends StatelessWidget {
         title: d.deviceName.isNotEmpty ? d.deviceName : 'Автомат',
         subtitle: '№ ${d.account}',
       ),
-      body: ListView(
-        padding: AppSpacing.page,
+      body: Stack(
         children: [
-          FadeSlideIn(child: _DeviceHero(device: d, quality: quality)),
-          const SizedBox(height: AppSpacing.xxl),
-          const SectionHeader(
-              title: 'Характеристики', icon: Icons.tune_rounded),
-          FadeSlideIn(
-            delay: const Duration(milliseconds: 60),
-            child: AppCard(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.xl, vertical: AppSpacing.sm),
-              child: _SpecTable(specs: specs),
-            ),
+          ListView(
+            padding: AppSpacing.page,
+            children: [
+              if (refreshError != null) ...[
+                RefreshErrorBanner(
+                  message: refreshError,
+                  updatedAt: store.updatedAt,
+                  onRetry: () => store.refresh(),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+              ],
+              FadeSlideIn(child: _DeviceHero(device: d, quality: quality)),
+              const SizedBox(height: AppSpacing.xxl),
+              const SectionHeader(
+                  title: 'Характеристики', icon: Icons.tune_rounded),
+              FadeSlideIn(
+                delay: const Duration(milliseconds: 60),
+                child: AppCard(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.xl, vertical: AppSpacing.sm),
+                  child: _SpecTable(specs: specs),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xxl),
+              const SectionHeader(
+                  title: 'Финансы · сегодня', icon: Icons.savings_rounded),
+              FadeSlideIn(
+                delay: const Duration(milliseconds: 120),
+                child: _FinanceTile(
+                  icon: Icons.receipt_long_rounded,
+                  tint: c.accent,
+                  label: 'Купюры',
+                  amount: totals.payMoneyToday,
+                  onTap: () => context.go(
+                      '/dashboard/${Uri.encodeComponent(d.account)}/money'),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              FadeSlideIn(
+                delay: const Duration(milliseconds: 160),
+                child: _FinanceTile(
+                  icon: Icons.toll_rounded,
+                  tint: AppColors.cyan,
+                  label: 'Монеты',
+                  amount: totals.payCoinToday,
+                  onTap: () => context.go(
+                      '/dashboard/${Uri.encodeComponent(d.account)}/coin'),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              FadeSlideIn(
+                delay: const Duration(milliseconds: 200),
+                child: _FinanceTile(
+                  icon: Icons.contactless_rounded,
+                  tint: c.accentAlt,
+                  label: 'Безналичные',
+                  amount: totals.paymentsToday,
+                  onTap: () => context.go(
+                      '/dashboard/${Uri.encodeComponent(d.account)}/payments'),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: AppSpacing.xxl),
-          const SectionHeader(
-              title: 'Финансы · сегодня', icon: Icons.savings_rounded),
-          FadeSlideIn(
-            delay: const Duration(milliseconds: 120),
-            child: _FinanceTile(
-              icon: Icons.receipt_long_rounded,
-              tint: c.accent,
-              label: 'Купюры',
-              amount: totals.payMoneyToday,
-              onTap: () => context.go(
-                  '/dashboard/${Uri.encodeComponent(d.account)}/money'),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          FadeSlideIn(
-            delay: const Duration(milliseconds: 160),
-            child: _FinanceTile(
-              icon: Icons.toll_rounded,
-              tint: AppColors.cyan,
-              label: 'Монеты',
-              amount: totals.payCoinToday,
-              onTap: () => context.go(
-                  '/dashboard/${Uri.encodeComponent(d.account)}/coin'),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          FadeSlideIn(
-            delay: const Duration(milliseconds: 200),
-            child: _FinanceTile(
-              icon: Icons.contactless_rounded,
-              tint: c.accentAlt,
-              label: 'Безналичные',
-              amount: totals.paymentsToday,
-              onTap: () => context.go(
-                  '/dashboard/${Uri.encodeComponent(d.account)}/payments'),
-            ),
-          ),
+          RefreshProgressBar(visible: store.isRefreshing),
         ],
       ),
     );

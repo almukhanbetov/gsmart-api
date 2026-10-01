@@ -139,9 +139,10 @@ class DashboardSkeleton extends StatelessWidget {
           const SizedBox(height: AppSpacing.lg),
           Row(
             children: const [
-              Expanded(child: _SkeletonCard(height: 96)),
+              // 106 = 64 содержимого + 40 отступов + 2 рамки (при 96 был overflow)
+              Expanded(child: _SkeletonCard(height: 106)),
               SizedBox(width: AppSpacing.md),
-              Expanded(child: _SkeletonCard(height: 96)),
+              Expanded(child: _SkeletonCard(height: 106)),
             ],
           ),
           const SizedBox(height: AppSpacing.xl),

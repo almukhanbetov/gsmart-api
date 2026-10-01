@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gsmart/core/format.dart';
 import 'package:gsmart/features/auth/models/login_response.dart';
 import 'package:gsmart/features/dashboard/models/dashboard_summary.dart';
 import 'package:gsmart/shared/widgets/signal_bars.dart';
@@ -32,7 +33,7 @@ void main() {
   });
 
   test('DashboardSummary: счётчики online/offline и средний сигнал', () {
-    final now = DateTime.now().toUtc().toIso8601String();
+    final now = projectNow().toIso8601String(); // время Алматы, как в API
     final s = LoginResponse.fromJson({
       'message': 'ok',
       'user': {'id': 1, 'phone': 'x', 'fullname': 'x', 'user_code': 1, 'bin': ''},

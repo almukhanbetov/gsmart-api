@@ -57,6 +57,56 @@ func loginHandler(c *gin.Context) {
 		return
 	}
 
+	data, ok := loadUserData(c, user)
+	if !ok {
+		return
+	}
+
+	data["message"] = "Авторизация успешна"
+
+	// Токен нужен для обновления данных без повторного входа (GET /api/me).
+	// Если сессию создать не удалось, вход всё равно работает как раньше.
+	token, err := createSession(c.Request.Context(), user.ID)
+	if err != nil {
+		log.Println("Ошибка создания сессии:", err)
+	} else {
+		data["token"] = token
+	}
+
+	c.JSON(http.StatusOK, data)
+}
+
+// meHandler — актуальные данные владельца сессии в том же формате, что login.
+func meHandler(c *gin.Context) {
+	user := c.MustGet(authUserKey).(User)
+
+	data, ok := loadUserData(c, user)
+	if !ok {
+		return
+	}
+
+	c.JSON(http.StatusOK, data)
+}
+
+// logoutHandler отзывает текущую сессию. Неизвестный токен — тоже успех.
+func logoutHandler(c *gin.Context) {
+	if token := bearerToken(c); token != "" {
+		if err := deleteSession(c.Request.Context(), token); err != nil {
+			log.Println("Ошибка удаления сессии:", err)
+
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Ошибка сервера",
+			})
+			return
+		}
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
+// loadUserData собирает user + devices/money/coin/payments по user_code.
+// При ошибке сам отправляет ответ и возвращает ok = false.
+func loadUserData(c *gin.Context, user User) (gin.H, bool) {
 	devices, err := getDevices(
 		c.Request.Context(),
 		user.UserCode,
@@ -67,7 +117,7 @@ func loginHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Ошибка получения устройств",
 		})
-		return
+		return nil, false
 	}
 
 	money, err := getMoney(
@@ -80,7 +130,7 @@ func loginHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Ошибка получения money",
 		})
-		return
+		return nil, false
 	}
 
 	coins, err := getCoins(
@@ -93,7 +143,7 @@ func loginHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Ошибка получения coin",
 		})
-		return
+		return nil, false
 	}
 
 	payments, err := getPayments(
@@ -106,17 +156,16 @@ func loginHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Ошибка получения payments",
 		})
-		return
+		return nil, false
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message":  "Авторизация успешна",
+	return gin.H{
 		"user":     user,
 		"devices":  devices,
 		"money":    money,
 		"coin":     coins,
 		"payments": payments,
-	})
+	}, true
 }
 
 func getMoneyHandler(c *gin.Context) {

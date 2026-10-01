@@ -10,24 +10,75 @@ import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/fade_slide_in.dart';
 import '../../../shared/widgets/loading_skeleton.dart';
 import '../../../shared/widgets/metric_card.dart';
+import '../../../shared/widgets/refresh_status.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../models/dashboard_summary.dart';
 import '../models/device_totals.dart';
 import 'widgets/device_card.dart';
 import 'widgets/revenue_hero_card.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen>
+    with WidgetsBindingObserver {
+  /// Обновление запущено жестом — свой индикатор уже показывает RefreshIndicator.
+  bool _pulling = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    // обновление при открытии главной (после первого кадра — не во время build)
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => SessionStore.instance.refresh(force: false),
+    );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // главная всегда в стеке после входа — ловим возврат из фона здесь
+    if (state == AppLifecycleState.resumed) {
+      SessionStore.instance.refresh(force: false);
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  Future<void> _pullToRefresh() async {
+    setState(() => _pulling = true);
+    try {
+      await SessionStore.instance.refresh();
+    } finally {
+      if (mounted) setState(() => _pulling = false);
+    }
+  }
+
   Future<void> _logout(BuildContext context) async {
-    await SessionStore.instance.clear();
+    await SessionStore.instance.signOut();
     if (context.mounted) context.go('/');
   }
 
   @override
   Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: SessionStore.instance,
+      builder: (context, _) => _buildContent(context),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
     final c = context.colors;
-    final session = SessionStore.instance.session;
+    final store = SessionStore.instance;
+    final session = store.session;
 
     if (session == null) {
       return const Scaffold(body: SafeArea(child: DashboardSkeleton()));
@@ -37,59 +88,82 @@ class DashboardScreen extends StatelessWidget {
     final devices = session.devices;
     final summary = DashboardSummary.of(session);
 
+    final refreshError = store.refreshError;
+
     return Scaffold(
       body: SafeArea(
         bottom: false,
-        child: RefreshIndicator(
-          onRefresh: () async {},
-          color: c.accent,
-          child: ListView(
-            padding: AppSpacing.page,
-            children: [
-              FadeSlideIn(
-                child: _Header(
-                  name: user.fullname.isNotEmpty ? user.fullname : user.phone,
-                  onLogout: () => _logout(context),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              FadeSlideIn(
-                delay: const Duration(milliseconds: 60),
-                child: RevenueHeroCard(summary: summary),
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              FadeSlideIn(
-                delay: const Duration(milliseconds: 120),
-                child: _SummaryGrid(summary: summary),
-              ),
-              const SizedBox(height: AppSpacing.xxl),
-              const SectionHeader(
-                  title: 'Автоматы', icon: Icons.dashboard_rounded),
-              if (devices.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.only(top: AppSpacing.xxl),
-                  child: EmptyState(
-                    icon: Icons.point_of_sale_outlined,
-                    title: 'Автоматы не найдены',
-                    message: 'К вашему аккаунту пока не привязан ни один автомат',
-                  ),
-                )
-              else
-                for (var i = 0; i < devices.length; i++) ...[
+        child: Stack(
+          children: [
+            RefreshIndicator(
+              onRefresh: _pullToRefresh,
+              color: c.accent,
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: AppSpacing.page,
+                children: [
                   FadeSlideIn(
-                    delay: Duration(milliseconds: 150 + i * 55),
-                    child: DeviceCard(
-                      device: devices[i],
-                      totals: DeviceTotals.forDevice(devices[i], session),
-                      onTap: () => context.go(
-                        '/dashboard/${Uri.encodeComponent(devices[i].account)}',
-                      ),
+                    child: _Header(
+                      name: user.fullname.isNotEmpty ? user.fullname : user.phone,
+                      onLogout: () => _logout(context),
                     ),
                   ),
-                  const SizedBox(height: AppSpacing.md),
+                  if (refreshError != null) ...[
+                    const SizedBox(height: AppSpacing.lg),
+                    RefreshErrorBanner(
+                      message: refreshError,
+                      updatedAt: store.updatedAt,
+                      onRetry: () => store.refresh(),
+                    ),
+                  ],
+                  const SizedBox(height: AppSpacing.xl),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 60),
+                    child: RevenueHeroCard(summary: summary),
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 120),
+                    child: _SummaryGrid(summary: summary),
+                  ),
+                  const SizedBox(height: AppSpacing.xxl),
+                  const SectionHeader(
+                      title: 'Автоматы', icon: Icons.dashboard_rounded),
+                  if (devices.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.only(top: AppSpacing.xxl),
+                      child: EmptyState(
+                        icon: Icons.point_of_sale_outlined,
+                        title: 'Автоматы не найдены',
+                        message: 'К вашему аккаунту пока не привязан ни один автомат',
+                      ),
+                    )
+                  else
+                    for (var i = 0; i < devices.length; i++) ...[
+                      FadeSlideIn(
+                        delay: Duration(milliseconds: 150 + i * 55),
+                        child: DeviceCard(
+                          device: devices[i],
+                          totals: DeviceTotals.forDevice(devices[i], session),
+                          onTap: () => context.go(
+                            '/dashboard/${Uri.encodeComponent(devices[i].account)}',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                    ],
                 ],
-            ],
-          ),
+              ),
+            ),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: RefreshProgressBar(
+                visible: store.isRefreshing && !_pulling,
+              ),
+            ),
+          ],
         ),
       ),
     );

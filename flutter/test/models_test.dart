@@ -156,10 +156,33 @@ void main() {
     });
   });
 
+  group('isToday — по часовому поясу проекта (Asia/Almaty, UTC+5)', () {
+    // 1 октября 20:00 UTC = 2 октября 01:00 в Алматы
+    final now = DateTime.utc(2026, 10, 1, 20);
+
+    test('после полуночи по Алматы — уже новый день', () {
+      expect(isToday(DateTime.parse('2026-10-02T00:30:00Z'), now: now), isTrue);
+      expect(isToday(DateTime.parse('2026-10-01T23:00:00Z'), now: now), isFalse);
+    });
+
+    test('днём оба пояса совпадают по дате', () {
+      final noon = DateTime.utc(2026, 10, 1, 7); // 12:00 в Алматы
+      expect(isToday(DateTime.parse('2026-10-01T00:05:00Z'), now: noon), isTrue);
+      expect(isToday(DateTime.parse('2026-09-30T23:59:00Z'), now: noon), isFalse);
+    });
+
+    test('не зависит от пояса телефона', () {
+      expect(projectNow(now), DateTime.utc(2026, 10, 2, 1));
+      expect(projectNow(now.toLocal()), DateTime.utc(2026, 10, 2, 1));
+    });
+
+    test('null — не сегодня', () => expect(isToday(null), isFalse));
+  });
+
   group('DeviceTotals — итоги "за сегодня" из ответа login', () {
     test('суммирует только сегодняшние операции нужного account', () {
-      final today = DateTime.now();
-      final iso = today.toUtc().toIso8601String();
+      // API отдаёт время Алматы с суффиксом Z — так и формируем «сейчас»
+      final iso = projectNow().toIso8601String();
       final login = LoginResponse.fromJson({
         'message': 'ok',
         'user': {

@@ -9,8 +9,8 @@ import 'api_exception.dart';
 
 /// Тонкая обёртка над `package:http`.
 ///
-/// Единый разбор ответа и ошибок для всех запросов. Текущий backend не требует
-/// авторизации — заголовок Authorization не добавляется (см. этап проекта).
+/// Единый разбор ответа и ошибок для всех запросов. Если передан [token],
+/// добавляется заголовок `Authorization: Bearer <token>` (сессия из login).
 class ApiClient {
   ApiClient({http.Client? client, String? baseUrl})
       : _client = client ?? http.Client(),
@@ -19,21 +19,31 @@ class ApiClient {
   final http.Client _client;
   final String _baseUrl;
 
-  Future<dynamic> getJson(String path) {
-    return _send(() => _client.get(_uri(path)));
+  Future<dynamic> getJson(String path, {String? token}) {
+    return _send(() => _client.get(_uri(path), headers: _headers(token)));
   }
 
-  Future<dynamic> postJson(String path, Map<String, dynamic> body) {
+  Future<dynamic> postJson(
+    String path,
+    Map<String, dynamic> body, {
+    String? token,
+  }) {
     return _send(
       () => _client.post(
         _uri(path),
-        headers: const {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          ..._headers(token),
+        },
         body: jsonEncode(body),
       ),
     );
   }
 
   Uri _uri(String path) => Uri.parse('$_baseUrl$path');
+
+  Map<String, String> _headers(String? token) =>
+      token == null || token.isEmpty ? const {} : {'Authorization': 'Bearer $token'};
 
   Future<dynamic> _send(Future<http.Response> Function() request) async {
     final http.Response response;

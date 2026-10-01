@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -21,10 +22,14 @@ func setupRouter() *gin.Engine {
 	api := router.Group("/api", requireDB())
 
 	api.POST("/login", loginHandler)
+	api.POST("/logout", logoutHandler)
+	api.GET("/me", requireAuth(), meHandler)
 
-	api.GET("/money/:account", getMoneyHandler)
-	api.GET("/coin/:account", getCoinHandler)
-	api.GET("/payments/:account", getPaymentsHandler)
+	// история — только по сессии и только по своим автоматам
+	history := api.Group("", requireAuth(), requireDeviceOwner())
+	history.GET("/money/:account", getMoneyHandler)
+	history.GET("/coin/:account", getCoinHandler)
+	history.GET("/payments/:account", getPaymentsHandler)
 
 	return router
 }
@@ -38,6 +43,11 @@ func requireDB() gin.HandlerFunc {
 				"error": "Нет подключения к базе данных",
 			})
 			return
+		}
+
+		// если при старте БД была недоступна, таблица сессий создаётся здесь
+		if err := ensureSchema(c.Request.Context()); err != nil {
+			log.Println("Ошибка подготовки схемы БД:", err)
 		}
 
 		c.Next()

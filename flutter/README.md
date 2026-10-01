@@ -47,14 +47,22 @@ lib/
 └── shared/widgets/  signal_bars · status_views · date_range_bar · transaction_history_screen
 ```
 
-## API (не меняется)
+## API
 
 | Метод | Endpoint | Экран |
 |---|---|---|
-| POST | `/api/login` | LoginScreen |
-| — | (dashboard использует данные из ответа login) | DashboardScreen |
+| POST | `/api/login` | LoginScreen (в ответе — данные и `token` сессии) |
+| GET | `/api/me` | обновление главной и экрана автомата |
+| POST | `/api/logout` | выход (отзыв сессии) |
 | GET | `/api/money/:account` | MoneyScreen |
 | GET | `/api/coin/:account` | CoinScreen |
 | GET | `/api/payments/:account` | PaymentsScreen |
 
-JWT и новых endpoint нет — используется текущая серверная логика.
+Все запросы, кроме login, идут с `Authorization: Bearer <token>`. История
+отдаётся только по автоматам владельца сессии. Пароль на устройстве не
+хранится, токен и последняя копия данных — в `shared_preferences`.
+Ответ 401 завершает сессию и возвращает на экран входа.
+
+Данные обновляются при открытии главной и экрана автомата, при возврате
+приложения из фона и жестом «потянуть вниз». «Сегодня» считается по
+Asia/Almaty (см. `projectUtcOffset` в `lib/core/format.dart`).

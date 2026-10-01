@@ -366,3 +366,21 @@ func getPayments(
 
 	return result, rows.Err()
 }
+
+// deviceBelongsToUser — true, если автомат с этим account привязан к user_code.
+func deviceBelongsToUser(
+	ctx context.Context,
+	account string,
+	userCode int,
+) (bool, error) {
+	var owned bool
+
+	err := db.QueryRow(
+		ctx,
+		`SELECT EXISTS (SELECT 1 FROM devices WHERE account = $1 AND user_code = $2)`,
+		account,
+		userCode,
+	).Scan(&owned)
+
+	return owned, err
+}
