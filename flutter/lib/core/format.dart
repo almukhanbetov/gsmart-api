@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:intl/intl.dart';
 
 /// Форматирование и клиентские расчёты — перенос mobile/src/lib/format.ts.
@@ -94,9 +95,14 @@ int? signalQuality(String raw) {
 /// Алматы, и сравнивать их нужно с «сейчас» в Алматы, а не в поясе телефона.
 const Duration projectUtcOffset = Duration(hours: 5);
 
+/// Источник текущего времени; в тестах подменяется (например, переход через
+/// полночь).
+@visibleForTesting
+DateTime Function() clock = DateTime.now;
+
 /// Текущие дата и время в часовом поясе проекта (компоненты — по Алматы).
 DateTime projectNow([DateTime? now]) =>
-    (now ?? DateTime.now()).toUtc().add(projectUtcOffset);
+    (now ?? clock()).toUtc().add(projectUtcOffset);
 
 /// true, если дата из API — сегодня по времени Алматы (mobile: isToday()).
 bool isToday(DateTime? value, {DateTime? now}) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/format.dart';
+import '../../core/storage/session_storage.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import 'app_card.dart';
@@ -12,6 +13,7 @@ import 'error_state.dart';
 import 'fade_slide_in.dart';
 import 'loading_skeleton.dart';
 import 'money_amount.dart';
+import 'refresh_status.dart';
 
 /// Одна строка истории: дата операции + сумма.
 class TxnRow {
@@ -49,55 +51,139 @@ class TransactionHistoryScreen extends StatefulWidget {
 }
 
 class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
-  late Future<List<TxnRow>> _future;
-  // при каждом открытии — «Сегодня»; выбор живёт до закрытия экрана
-  // (обновление жестом меняет только _future)
-  DateRange _range = DateRange.forPreset(DateRangePreset.today);
+  /// Последний успешно загруженный список; null — ещё ни разу не загрузили.
+  List<TxnRow>? _rows;
+  DateTime? _loadedAt;
+  String? _error;
+  bool _loading = false;
+  bool _pulling = false;
+  Future<void>? _inFlight;
+  bool _initialized = false;
+
+  /// Пресет храним отдельно от дат: «Сегодня» / «Неделя» / «Месяц»
+  /// пересчитываются при каждой отрисовке, поэтому после полуночи обновление
+  /// показывает новый день. Даты фиксируются только у произвольного периода.
+  /// При каждом открытии экрана — «Сегодня».
+  DateRangePreset _preset = DateRangePreset.today;
+  DateRange? _custom;
+
+  DateRange get _range =>
+      _preset == DateRangePreset.custom && _custom != null
+          ? _custom!
+          : DateRange.forPreset(_preset);
 
   @override
   void initState() {
     super.initState();
-    _future = widget.loader();
+    _load();
+    _initialized = true;
   }
 
-  // колбэк setState не должен возвращать Future — иначе assert в debug
-  void _reload() {
+  /// Загрузка истории. Повторный вызов во время запроса не создаёт второй
+  /// запрос. Ошибка не стирает последние успешные данные.
+  Future<void> _load() {
+    final pending = _inFlight;
+    if (pending != null) return pending;
+
+    // ответ для другой сессии (выход / смена пользователя) не применяем
+    final token = SessionStore.instance.token;
+    final request = _fetch(token);
+    _inFlight = request;
+    return request;
+  }
+
+  Future<void> _fetch(String? token) async {
+    _loading = true;
+    _error = null;
+    // из initState setState вызывать нельзя — первая отрисовка и так впереди
+    if (_initialized) setState(() {});
+
+    List<TxnRow>? rows;
+    String? error;
+    try {
+      rows = await widget.loader();
+    } on ApiException catch (e) {
+      error = e.message;
+    } catch (_) {
+      error = 'Проверьте соединение и попробуйте снова.';
+    }
+
+    if (!mounted) return;
+    _inFlight = null;
+    if (SessionStore.instance.token != token) {
+      setState(() => _loading = false);
+      return;
+    }
+
     setState(() {
-      _future = widget.loader();
+      _loading = false;
+      if (rows != null) {
+        _rows = rows;
+        _loadedAt = DateTime.now();
+      } else {
+        _error = error;
+      }
+    });
+  }
+
+  Future<void> _pullToRefresh() async {
+    setState(() => _pulling = true);
+    try {
+      await _load();
+    } finally {
+      if (mounted) setState(() => _pulling = false);
+    }
+  }
+
+  void _onRangeChanged(DateRange range) {
+    setState(() {
+      _preset = range.preset;
+      _custom = range.preset == DateRangePreset.custom ? range : null;
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final rows = _rows;
+    final error = _error;
+
+    final Widget body;
+    if (rows == null) {
+      // ещё нет ни одной успешной загрузки
+      body = error != null && !_loading
+          ? ErrorState(message: error, onRetry: _load)
+          : const HistorySkeleton();
+    } else {
+      body = Stack(
+        children: [
+          _Content(
+            all: rows,
+            range: _range,
+            accent: widget.accent,
+            rowIcon: widget.rowIcon,
+            onRangeChanged: _onRangeChanged,
+            onRefresh: _pullToRefresh,
+            banner: error == null
+                ? null
+                : RefreshErrorBanner(
+                    message: error,
+                    updatedAt: _loadedAt,
+                    onRetry: _load,
+                  ),
+          ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: RefreshProgressBar(visible: _loading && !_pulling),
+          ),
+        ],
+      );
+    }
+
     return Scaffold(
       appBar: AppTopBar(title: widget.title, subtitle: widget.subtitle),
-      body: FutureBuilder<List<TxnRow>>(
-        future: _future,
-        builder: (context, snapshot) {
-          final loading = snapshot.connectionState == ConnectionState.waiting;
-
-          return AnimatedSwitcher(
-            duration: AppDuration.base,
-            child: loading
-                ? const HistorySkeleton()
-                : snapshot.hasError
-                    ? ErrorState(
-                        message: snapshot.error is ApiException
-                            ? (snapshot.error as ApiException).message
-                            : 'Проверьте соединение и попробуйте снова.',
-                        onRetry: _reload,
-                      )
-                    : _Content(
-                        all: snapshot.data ?? const [],
-                        range: _range,
-                        accent: widget.accent,
-                        rowIcon: widget.rowIcon,
-                        onRangeChanged: (r) => setState(() => _range = r),
-                        onRefresh: () async => _reload(),
-                      ),
-          );
-        },
-      ),
+      body: AnimatedSwitcher(duration: AppDuration.base, child: body),
     );
   }
 }
@@ -110,6 +196,7 @@ class _Content extends StatelessWidget {
     required this.rowIcon,
     required this.onRangeChanged,
     required this.onRefresh,
+    this.banner,
   });
 
   final List<TxnRow> all;
@@ -118,6 +205,9 @@ class _Content extends StatelessWidget {
   final IconData rowIcon;
   final ValueChanged<DateRange> onRangeChanged;
   final Future<void> Function() onRefresh;
+
+  /// Плашка «не удалось обновить» над данными.
+  final Widget? banner;
 
   @override
   Widget build(BuildContext context) {
@@ -143,8 +233,13 @@ class _Content extends StatelessWidget {
       color: c.accent,
       onRefresh: onRefresh,
       child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: AppSpacing.page,
         children: [
+          if (banner != null) ...[
+            banner!,
+            const SizedBox(height: AppSpacing.lg),
+          ],
           FadeSlideIn(
             child: _TotalHero(total: total, accent: accent),
           ),
@@ -165,8 +260,8 @@ class _Content extends StatelessWidget {
               padding: EdgeInsets.only(top: AppSpacing.xxxl),
               child: EmptyState(
                 icon: Icons.event_busy_rounded,
-                title: 'Ничего не найдено',
-                message: 'За выбранный период поступлений не найдено',
+                title: 'За выбранный период операций нет',
+                message: 'Выберите другой период',
               ),
             )
           else

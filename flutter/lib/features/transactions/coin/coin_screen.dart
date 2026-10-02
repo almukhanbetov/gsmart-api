@@ -15,6 +15,8 @@ class CoinScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final repo = TransactionsRepository();
     return TransactionHistoryScreen(
+      // другой автомат — новое состояние, данные не смешиваются
+      key: ValueKey('coin/$account'),
       title: 'Монеты',
       subtitle: deviceName?.isNotEmpty == true
           ? '${deviceName!} · № $account'

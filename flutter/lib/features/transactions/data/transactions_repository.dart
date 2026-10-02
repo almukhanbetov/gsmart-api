@@ -12,33 +12,38 @@ import '../payments/models/payment_entry.dart';
 ///
 /// Запросы идут с токеном сессии — сервер отдаёт только свои автоматы.
 /// 401 (сессии нет или она истекла) завершает сессию → экран входа.
+/// Ответ без нужного списка считается ошибкой, а не пустой историей.
 class TransactionsRepository {
   TransactionsRepository({ApiClient? client}) : _client = client ?? ApiClient();
 
   final ApiClient _client;
 
   Future<MoneyResult> money(String account) async {
-    final data = await _get('/api/money/$account');
-    return MoneyResult.fromJson((data as Map).cast<String, dynamic>());
+    return MoneyResult.fromJson(await _get('/api/money/$account', 'money'));
   }
 
   Future<CoinResult> coin(String account) async {
-    final data = await _get('/api/coin/$account');
-    return CoinResult.fromJson((data as Map).cast<String, dynamic>());
+    return CoinResult.fromJson(await _get('/api/coin/$account', 'coin'));
   }
 
   Future<PaymentsResult> payments(String account) async {
-    final data = await _get('/api/payments/$account');
-    return PaymentsResult.fromJson((data as Map).cast<String, dynamic>());
+    return PaymentsResult.fromJson(await _get('/api/payments/$account', 'payments'));
   }
 
-  Future<dynamic> _get(String path) async {
+  /// Запрос + проверка формата: в ответе обязан быть список [listKey].
+  /// Неожиданный ответ — ошибка, а не «операций нет».
+  Future<Map<String, dynamic>> _get(String path, String listKey) async {
     final token = SessionStore.instance.token;
+    final dynamic data;
     try {
-      return await _client.getJson(path, token: token);
+      data = await _client.getJson(path, token: token);
     } on ApiException catch (e) {
       if (e.statusCode == 401) await SessionStore.instance.expire(token);
       rethrow;
     }
+    if (data is! Map || data[listKey] is! List) {
+      throw ApiException('Некорректный ответ сервера. Попробуйте позже.');
+    }
+    return data.cast<String, dynamic>();
   }
 }
