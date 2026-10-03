@@ -70,7 +70,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
-    expect(find.text('SMART24'), findsOneWidget);
+    expect(find.text('G_smart.kz'), findsOneWidget);
+    expect(find.text('Пароль указан в вашем договоре'), findsOneWidget);
     expect(find.text('Войти'), findsOneWidget);
     expect(find.byType(TextField), findsNWidgets(2));
   });
@@ -84,8 +85,14 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.textContaining('Иван'), findsWidgets);
     expect(find.text('Выручка сегодня'), findsOneWidget);
-    expect(find.text('Автоматы'), findsOneWidget);
+    expect(find.text('Ваша сеть автомоек'), findsOneWidget);
+    expect(find.text('Автомойки'), findsOneWidget);
     expect(find.text('Smart24 #1'), findsOneWidget);
+
+    // основное действие hero-блока прокручивает к списку автомоек
+    await tester.tap(find.text('Мои автомойки · 1'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('переход на детали автомата', (tester) async {
@@ -98,7 +105,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
-    expect(find.text('Характеристики'), findsOneWidget);
+    expect(find.text('Тариф'), findsOneWidget); // в верхнем блоке
     expect(find.textContaining('Финансы'), findsOneWidget);
   });
 

@@ -17,6 +17,8 @@ import '../models/device_totals.dart';
 import 'widgets/device_card.dart';
 import 'widgets/revenue_hero_card.dart';
 
+/// Главный экран после входа: бренд «Автомойка G_smart.kz», выручка за сегодня
+/// и список автоматов (моек). Данные и маршруты — прежние (см. app_router.dart).
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
@@ -26,6 +28,9 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen>
     with WidgetsBindingObserver {
+  final _scrollController = ScrollController();
+  final _devicesAnchor = GlobalKey();
+
   /// Обновление запущено жестом — свой индикатор уже показывает RefreshIndicator.
   bool _pulling = false;
 
@@ -50,6 +55,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -65,6 +71,17 @@ class _DashboardScreenState extends State<DashboardScreen>
   Future<void> _logout(BuildContext context) async {
     await SessionStore.instance.signOut();
     if (context.mounted) context.go('/');
+  }
+
+  void _scrollToDevices() {
+    final anchorContext = _devicesAnchor.currentContext;
+    if (anchorContext == null) return;
+    Scrollable.ensureVisible(
+      anchorContext,
+      duration: AppDuration.slow,
+      curve: Curves.easeOutCubic,
+      alignment: 0.02,
+    );
   }
 
   @override
@@ -99,6 +116,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               onRefresh: _pullToRefresh,
               color: c.accent,
               child: ListView(
+                controller: _scrollController,
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: AppSpacing.page,
                 children: [
@@ -119,7 +137,10 @@ class _DashboardScreenState extends State<DashboardScreen>
                   const SizedBox(height: AppSpacing.xl),
                   FadeSlideIn(
                     delay: const Duration(milliseconds: 60),
-                    child: RevenueHeroCard(summary: summary),
+                    child: RevenueHeroCard(
+                      summary: summary,
+                      onBrowseDevices: _scrollToDevices,
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.xl),
                   FadeSlideIn(
@@ -127,14 +148,19 @@ class _DashboardScreenState extends State<DashboardScreen>
                     child: _SummaryGrid(summary: summary),
                   ),
                   const SizedBox(height: AppSpacing.xxl),
-                  const SectionHeader(
-                      title: 'Автоматы', icon: Icons.dashboard_rounded),
+                  KeyedSubtree(
+                    key: _devicesAnchor,
+                    child: const SectionHeader(
+                      title: 'Автомойки',
+                      icon: Icons.local_car_wash_rounded,
+                    ),
+                  ),
                   if (devices.isEmpty)
                     const Padding(
                       padding: EdgeInsets.only(top: AppSpacing.xxl),
                       child: EmptyState(
-                        icon: Icons.point_of_sale_outlined,
-                        title: 'Автоматы не найдены',
+                        icon: Icons.local_car_wash_outlined,
+                        title: 'Автомойки не найдены',
                         message: 'К вашему аккаунту пока не привязан ни один автомат',
                       ),
                     )
@@ -205,7 +231,7 @@ class _Header extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: text.titleMedium?.copyWith(color: c.textPrimary)),
-              Text('Обзор сети автоматов',
+              Text('Сеть автомоек самообслуживания',
                   style: text.bodySmall?.copyWith(color: c.textMuted)),
             ],
           ),
@@ -251,13 +277,8 @@ class _SummaryGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    // один ряд: Online и Offline одинаковой ширины (2 колонки сетки)
     final items = [
-      MetricCard(
-        icon: Icons.point_of_sale_rounded,
-        value: '${summary.deviceCount}',
-        label: 'Автоматов',
-        tint: c.accent,
-      ),
       MetricCard(
         icon: Icons.wifi_rounded,
         value: '${summary.onlineCount}',
@@ -269,12 +290,6 @@ class _SummaryGrid extends StatelessWidget {
         value: '${summary.offlineCount}',
         label: 'Offline',
         tint: c.offline,
-      ),
-      MetricCard(
-        icon: Icons.network_cell_rounded,
-        value: summary.avgSignal == null ? '—' : '${summary.avgSignal}%',
-        label: 'Средний сигнал',
-        tint: AppColors.cyan,
       ),
     ];
 

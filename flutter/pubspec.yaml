@@ -22,6 +22,24 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
+
+# Иконка приложения: dart run flutter_launcher_icons
+# Исходник — assets/icons/app_icon.png (1254×1254, непрозрачный).
+# Android adaptive: фон — тот же градиент без знака, передний слой — белый
+# знак, уменьшенный до 58% радиуса (безопасная зона 66/108 ≈ 61%), чтобы
+# круглая и другие маски его не обрезали.
+flutter_launcher_icons:
+  android: "ic_launcher"
+  image_path: "assets/icons/app_icon.png"
+  adaptive_icon_background: "assets/icons/app_icon_background.png"
+  adaptive_icon_foreground: "assets/icons/app_icon_foreground.png"
+  # слой уже уменьшен под безопасную зону — без дополнительного отступа
+  adaptive_icon_foreground_inset: 0
+  min_sdk_android: 21
+  ios: true
+  remove_alpha_ios: true
+  background_color_ios: "#5A1BE8"

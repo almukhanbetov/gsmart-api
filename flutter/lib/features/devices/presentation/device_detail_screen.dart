@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -15,6 +17,7 @@ import '../../../shared/widgets/signal_bars.dart';
 import '../../../shared/widgets/status_badge.dart';
 import '../../dashboard/models/device_totals.dart';
 import '../models/device.dart';
+import 'widgets/finance_card.dart';
 
 /// Детали автомата + переходы к истории (Купюры / Монеты / Безналичные).
 ///
@@ -30,12 +33,32 @@ class DeviceDetailScreen extends StatefulWidget {
 }
 
 class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
+  Timer? _midnight;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => SessionStore.instance.refresh(force: false),
     );
+    _scheduleMidnight();
+  }
+
+  @override
+  void dispose() {
+    _midnight?.cancel();
+    super.dispose();
+  }
+
+  /// В полночь по Алматы плитки «· сегодня» пересчитываются: иначе до
+  /// следующей перерисовки они показывали бы вчерашние суммы.
+  void _scheduleMidnight() {
+    _midnight?.cancel();
+    _midnight = Timer(untilProjectMidnight(), () {
+      if (!mounted) return;
+      setState(() {});
+      _scheduleMidnight();
+    });
   }
 
   @override
@@ -82,106 +105,99 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     final quality = signalQuality(d.signalWifi);
     final totals = DeviceTotals.forDevice(d, session);
 
+    // «Тариф» и «Абон. плата до» — в верхнем блоке (_DeviceHero)
     final specs = <(IconData, String, String)>[
-      (
-        Icons.dns_rounded,
-        'Сервер',
-        d.serverStatus ? 'на связи' : 'нет связи'
-      ),
-      (
-        Icons.developer_board_rounded,
-        'Устройство',
-        d.deviceStatus ? 'включено' : 'выключено'
-      ),
       if (d.gruppa.isNotEmpty)
         (Icons.folder_open_rounded, 'Группа', d.gruppa),
-      if (d.bin.isNotEmpty) (Icons.badge_outlined, 'БИН', d.bin),
-      (Icons.account_balance_wallet_outlined, 'Тариф', formatTenge(d.summa)),
-      if (d.abonTime != null && d.abonTime!.isNotEmpty)
-        (Icons.event_repeat_rounded, 'Абон. плата до', d.abonTime!),
       if (d.dataInkas != null && d.dataInkas!.isNotEmpty)
         (
           Icons.local_atm_rounded,
           'Инкассация',
           formatDateTime(DateTime.tryParse(d.dataInkas!))
         ),
-      if (d.dataStatus != null && d.dataStatus!.isNotEmpty)
-        (
-          Icons.schedule_rounded,
-          'Обновлён',
-          formatDateTime(DateTime.tryParse(d.dataStatus!))
-        ),
     ];
 
     return Scaffold(
       appBar: AppTopBar(
-        title: d.deviceName.isNotEmpty ? d.deviceName : 'Автомат',
+        title: d.displayTitle,
         subtitle: '№ ${d.account}',
       ),
       body: Stack(
         children: [
-          ListView(
-            padding: AppSpacing.page,
-            children: [
-              if (refreshError != null) ...[
-                RefreshErrorBanner(
-                  message: refreshError,
-                  updatedAt: store.updatedAt,
-                  onRetry: () => store.refresh(),
-                ),
+          RefreshIndicator(
+            // свежие данные сессии → плитки; FinanceCard сам перезагрузит
+            // историю после обновления сессии
+            onRefresh: () => store.refresh(),
+            color: c.accent,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: AppSpacing.page,
+              children: [
+                if (refreshError != null) ...[
+                  RefreshErrorBanner(
+                    message: refreshError,
+                    updatedAt: store.updatedAt,
+                    onRetry: () => store.refresh(),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                ],
+                FadeSlideIn(child: _DeviceHero(device: d, quality: quality)),
+                // пустую секцию не показываем вместе с заголовком и отступом
+                if (specs.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.xxl),
+                  const SectionHeader(
+                      title: 'Характеристики', icon: Icons.tune_rounded),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 60),
+                    child: AppCard(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.xl, vertical: AppSpacing.sm),
+                      child: _SpecTable(specs: specs),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: AppSpacing.xxl),
+                // карточка «Финансы»: итог и разбивка за выбранный период;
+                // плитки ниже — отдельно, по-прежнему за сегодня
+                FinanceCard(account: d.account),
                 const SizedBox(height: AppSpacing.lg),
+                FadeSlideIn(
+                  delay: const Duration(milliseconds: 120),
+                  child: _FinanceTile(
+                    icon: Icons.receipt_long_rounded,
+                    tint: c.accent,
+                    label: 'Купюры',
+                    amount: totals.payMoneyToday,
+                    onTap: () => context.go(
+                        '/dashboard/${Uri.encodeComponent(d.account)}/money'),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                FadeSlideIn(
+                  delay: const Duration(milliseconds: 160),
+                  child: _FinanceTile(
+                    icon: Icons.toll_rounded,
+                    tint: AppColors.cyan,
+                    label: 'Монеты',
+                    amount: totals.payCoinToday,
+                    onTap: () => context.go(
+                        '/dashboard/${Uri.encodeComponent(d.account)}/coin'),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                FadeSlideIn(
+                  delay: const Duration(milliseconds: 200),
+                  child: _FinanceTile(
+                    icon: Icons.contactless_rounded,
+                    tint: c.accentAlt,
+                    label: 'Безналичные',
+                    amount: totals.paymentsToday,
+                    onTap: () => context.go(
+                        '/dashboard/${Uri.encodeComponent(d.account)}/payments'),
+                  ),
+                ),
               ],
-              FadeSlideIn(child: _DeviceHero(device: d, quality: quality)),
-              const SizedBox(height: AppSpacing.xxl),
-              const SectionHeader(
-                  title: 'Характеристики', icon: Icons.tune_rounded),
-              FadeSlideIn(
-                delay: const Duration(milliseconds: 60),
-                child: AppCard(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.xl, vertical: AppSpacing.sm),
-                  child: _SpecTable(specs: specs),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xxl),
-              const SectionHeader(
-                  title: 'Финансы · сегодня', icon: Icons.savings_rounded),
-              FadeSlideIn(
-                delay: const Duration(milliseconds: 120),
-                child: _FinanceTile(
-                  icon: Icons.receipt_long_rounded,
-                  tint: c.accent,
-                  label: 'Купюры',
-                  amount: totals.payMoneyToday,
-                  onTap: () => context.go(
-                      '/dashboard/${Uri.encodeComponent(d.account)}/money'),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              FadeSlideIn(
-                delay: const Duration(milliseconds: 160),
-                child: _FinanceTile(
-                  icon: Icons.toll_rounded,
-                  tint: AppColors.cyan,
-                  label: 'Монеты',
-                  amount: totals.payCoinToday,
-                  onTap: () => context.go(
-                      '/dashboard/${Uri.encodeComponent(d.account)}/coin'),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              FadeSlideIn(
-                delay: const Duration(milliseconds: 200),
-                child: _FinanceTile(
-                  icon: Icons.contactless_rounded,
-                  tint: c.accentAlt,
-                  label: 'Безналичные',
-                  amount: totals.paymentsToday,
-                  onTap: () => context.go(
-                      '/dashboard/${Uri.encodeComponent(d.account)}/payments'),
-                ),
-              ),
-            ],
+            ),
           ),
           RefreshProgressBar(visible: store.isRefreshing),
         ],
@@ -200,45 +216,43 @@ class _DeviceHero extends StatelessWidget {
     final c = context.colors;
     final text = Theme.of(context).textTheme;
     final online = device.status;
+    final abon = formatDateFull(device.abonTime);
 
     return AppCard(
       elevated: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // иконка только рядом с заголовком — колонки ниже на всю ширину
           Row(
             children: [
               Container(
-                width: 52,
-                height: 52,
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
                   color: c.accentSoft,
                   borderRadius: AppRadius.rMd,
                 ),
-                child: Icon(Icons.point_of_sale_rounded,
-                    color: c.accent, size: 26),
+                child: Icon(Icons.local_car_wash_rounded,
+                    color: c.accent, size: 24),
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      device.deviceName.isNotEmpty
-                          ? device.deviceName
-                          : 'G_smart.kz #${device.account}',
-                      style: text.titleLarge?.copyWith(color: c.textPrimary),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text('Account № ${device.account}',
-                        style: text.bodySmall?.copyWith(color: c.textMuted)),
-                  ],
+                child: Text(
+                  device.displayTitle,
+                  style: text.titleLarge?.copyWith(color: c.textPrimary),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
+          const SizedBox(height: AppSpacing.lg),
+          _InfoTable(rows: [
+            ('Аккаунт №', device.account),
+            ('Тариф', formatTenge(device.summa)),
+            if (abon != null) ('Абон. плата до', abon),
+          ]),
           const SizedBox(height: AppSpacing.lg),
           Row(
             children: [
@@ -254,6 +268,56 @@ class _DeviceHero extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Две колонки: подписи слева (по одному краю, приглушённые), значения
+/// справа (по правому краю, полужирные). Ширина подписей — по самой длинной,
+/// но не больше половины: длинное значение переносится в своей колонке,
+/// оставаясь в одной строке таблицы со своей подписью.
+class _InfoTable extends StatelessWidget {
+  const _InfoTable({required this.rows});
+
+  final List<(String, String)> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final text = Theme.of(context).textTheme;
+    const cell = EdgeInsets.symmetric(vertical: AppSpacing.xs);
+
+    return Table(
+      columnWidths: const {
+        0: MinColumnWidth(IntrinsicColumnWidth(), FractionColumnWidth(0.5)),
+        1: FlexColumnWidth(),
+      },
+      defaultVerticalAlignment: TableCellVerticalAlignment.top,
+      children: [
+        for (final (label, value) in rows)
+          TableRow(
+            children: [
+              Padding(
+                padding: cell.copyWith(right: AppSpacing.md),
+                child: Text(
+                  label,
+                  style: text.bodyMedium?.copyWith(color: c.textMuted),
+                ),
+              ),
+              Padding(
+                padding: cell,
+                child: Text(
+                  value,
+                  textAlign: TextAlign.right,
+                  style: text.bodyMedium?.copyWith(
+                    color: c.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+      ],
     );
   }
 }
@@ -364,7 +428,7 @@ class _FinanceTile extends StatelessWidget {
                 Text(label,
                     style: text.titleSmall?.copyWith(color: c.textPrimary)),
                 const SizedBox(height: 2),
-                Text(formatTenge(amount),
+                Text('${formatTenge(amount)} · сегодня',
                     style: text.bodySmall?.copyWith(color: c.textMuted)),
               ],
             ),

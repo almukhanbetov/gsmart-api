@@ -44,7 +44,7 @@ class DeviceCard extends StatelessWidget {
                   color: c.accentSoft,
                   borderRadius: AppRadius.rMd,
                 ),
-                child: Icon(Icons.point_of_sale_rounded,
+                child: Icon(Icons.local_car_wash_rounded,
                     size: 21, color: c.accent),
               ),
               const SizedBox(width: AppSpacing.md),
@@ -55,7 +55,7 @@ class DeviceCard extends StatelessWidget {
                     Text(
                       device.deviceName.isNotEmpty
                           ? device.deviceName
-                          : 'Smart24 #${device.account}',
+                          : 'G_smart.kz #${device.account}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: text.titleSmall?.copyWith(color: c.textPrimary),

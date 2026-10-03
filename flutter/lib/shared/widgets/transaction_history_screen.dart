@@ -129,7 +129,9 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
   Future<void> _pullToRefresh() async {
     setState(() => _pulling = true);
     try {
-      await _load();
+      // сессия — источник плиток «· сегодня» на экране автомата: обновляем
+      // и её, чтобы после возврата плитки совпадали с историей
+      await Future.wait([_load(), SessionStore.instance.refresh()]);
     } finally {
       if (mounted) setState(() => _pulling = false);
     }

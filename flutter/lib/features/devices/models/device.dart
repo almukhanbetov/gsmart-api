@@ -38,6 +38,15 @@ class Device {
   final String? dataStatus; // data_status (nullable)
   final String? dataInkas; // data_inkas (nullable)
 
+  /// Заголовок экрана: «Автомойка · device_name». Если название уже
+  /// содержит «Автомойка» — без повтора; без названия — просто «Автомойка».
+  String get displayTitle {
+    final name = deviceName.trim();
+    if (name.isEmpty) return 'Автомойка';
+    if (name.toLowerCase().contains('автомойка')) return name;
+    return 'Автомойка · $name';
+  }
+
   factory Device.fromJson(Map<String, dynamic> json) {
     return Device(
       id: asInt(json['id']),

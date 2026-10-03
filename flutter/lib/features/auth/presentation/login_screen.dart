@@ -90,7 +90,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           children: [
                             _LogoMark(color: c.accent),
                             const SizedBox(height: AppSpacing.xl),
-                            Text('SMART24',
+                            Text('G_smart.kz',
                                 style: text.displaySmall?.copyWith(
                                   color: c.textPrimary,
                                   letterSpacing: 1,
@@ -152,6 +152,26 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                 ),
                               ),
+                              const SizedBox(height: AppSpacing.sm),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: AppSpacing.xs),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Icon(Icons.description_outlined,
+                                        size: 14, color: c.textMuted),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        'Пароль указан в вашем договоре',
+                                        style: text.bodySmall
+                                            ?.copyWith(color: c.textMuted),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                               AnimatedSize(
                                 duration: AppDuration.base,
                                 curve: Curves.easeOut,
@@ -209,7 +229,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: AppSpacing.xxl),
                       Center(
                         child: Text(
-                          'Smart24 · сеть вендинговых автоматов',
+                          'G_smart.kz · сеть вендинговых автоматов',
                           style: text.bodySmall?.copyWith(color: c.textMuted),
                         ),
                       ),

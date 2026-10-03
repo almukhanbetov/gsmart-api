@@ -10,6 +10,7 @@ final DateFormat _time = DateFormat('HH:mm');
 final DateFormat _dayMonth = DateFormat('d MMM', 'ru');
 final DateFormat _dayMonthYear = DateFormat('d MMMM y', 'ru');
 final DateFormat _dateShort = DateFormat('dd.MM.yy');
+final DateFormat _dateFull = DateFormat('dd.MM.yyyy');
 
 /// "12 345 ₸".
 String formatTenge(num value) => '${_money.format(value)} ₸';
@@ -53,6 +54,15 @@ int _daysAgo(DateTime value, DateTime? now) {
 String formatTime(DateTime? value) => value == null ? '—' : _time.format(value);
 
 String formatDateShort(DateTime value) => _dateShort.format(value);
+
+/// Дата из API («2026-08-10» или ISO) → «10.08.2026». Пустое значение → null;
+/// нераспознанное показывается как есть, без подмены.
+String? formatDateFull(String? raw) {
+  final value = raw?.trim() ?? '';
+  if (value.isEmpty) return null;
+  final parsed = DateTime.tryParse(value);
+  return parsed == null ? value : _dateFull.format(parsed);
+}
 
 String formatDateTime(DateTime? value) =>
     value == null ? '—' : DateFormat('dd.MM.yyyy, HH:mm').format(value);
@@ -103,6 +113,14 @@ DateTime Function() clock = DateTime.now;
 /// Текущие дата и время в часовом поясе проекта (компоненты — по Алматы).
 DateTime projectNow([DateTime? now]) =>
     (now ?? clock()).toUtc().add(projectUtcOffset);
+
+/// Сколько ждать до ближайшей полуночи по Алматы (+1 с запаса) — для
+/// пересчёта «сегодня» в открытых экранах.
+Duration untilProjectMidnight([DateTime? now]) {
+  final t = projectNow(now);
+  final next = DateTime.utc(t.year, t.month, t.day + 1);
+  return next.difference(t) + const Duration(seconds: 1);
+}
 
 /// true, если дата из API — сегодня по времени Алматы (mobile: isToday()).
 bool isToday(DateTime? value, {DateTime? now}) {

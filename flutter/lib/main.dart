@@ -24,7 +24,7 @@ class GsmartApp extends StatelessWidget {
     return AnimatedBuilder(
       animation: ThemeController.instance,
       builder: (context, _) => MaterialApp.router(
-        title: 'Smart24',
+        title: 'G_smart.kz',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light(),
         darkTheme: AppTheme.dark(),

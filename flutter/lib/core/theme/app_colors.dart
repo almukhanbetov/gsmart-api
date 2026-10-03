@@ -87,7 +87,7 @@ class AppColors extends ThemeExtension<AppColors> {
     dangerSoft: Color(0xFFFCE4E9),
     online: _emerald,
     offline: Color(0xFFAAB1BE),
-    heroGradient: [Color(0xFF4B4BE6), Color(0xFF7A5CFF), Color(0xFF4CC5E8)],
+    heroGradient: [Color(0xFF4B4BE6), Color(0xFF7A5CFF), Color(0xFFB48CFF)],
     shadow: Color(0x14101828),
   );
 
@@ -113,7 +113,7 @@ class AppColors extends ThemeExtension<AppColors> {
     dangerSoft: Color(0xFF3B1F27),
     online: _emerald,
     offline: Color(0xFF565D6B),
-    heroGradient: [Color(0xFF3B3BC7), Color(0xFF6D4FE0), Color(0xFF2E9FBF)],
+    heroGradient: [Color(0xFF3B3BC7), Color(0xFF6D4FE0), Color(0xFF9B7BEA)],
     shadow: Color(0x33000000),
   );
 

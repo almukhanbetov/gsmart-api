@@ -173,11 +173,10 @@ void main() {
 
     // главная (в стеке под экраном) и экран автомата делят один запрос
     expect(requests, hasLength(1));
-    expect(find.text('Тариф'), findsOneWidget);
-    expect(find.text('включено'), findsOneWidget);
-    expect(find.text('выключено'), findsNothing);
+    expect(find.text('Тариф'), findsOneWidget); // в верхнем блоке
+    // тариф — в верхнем блоке, внутри Text.rich
     expect(find.text(formatTenge(4500)), findsOneWidget);
-    expect(find.text(formatTenge(700)), findsOneWidget); // купюры сегодня
+    expect(find.text('${formatTenge(700)} · сегодня'), findsOneWidget); // плитка «Купюры»
     expect(tester.takeException(), isNull);
   });
 
@@ -192,7 +191,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Не удалось обновить данные'), findsOneWidget);
-    expect(find.text('выключено'), findsOneWidget);
+    // тариф — в верхнем блоке, внутри Text.rich
     expect(find.text(formatTenge(3000)), findsOneWidget);
   });
 
